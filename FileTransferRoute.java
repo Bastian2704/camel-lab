@@ -17,5 +17,9 @@ public class FileTransferRoute extends RouteBuilder {
                 .convertBodyTo(String.class)
                 .transform().simple("${body.toUpperCase()}")
                 .to("file:output");
+
+        from("file:output?noop=true")
+                .log("Archivando ${file:name} el ${date:now:yyyy-MM-dd HH:mm:ss}")
+                .to("file:archived");
     }
 }
