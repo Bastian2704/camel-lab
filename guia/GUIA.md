@@ -269,9 +269,9 @@ javac -cp "lib/*" FileTransferRoute.java
 java -cp ".:lib/*" FileTransferRoute 2>&1 | tee logs/camel.log
 ```
 
-`tee` muestra los logs en pantalla **y** los guarda en `logs/camel.log`.
+`tee` muestra los logs en pantalla **y** los guarda en `logs/camel.log`. El `2>&1` es necesario porque `slf4j-simple` escribe los logs por **stderr**; sin él, `camel.log` queda vacío.
 
-Debes ver dos líneas de log (procesando + archivando) y **ninguna** para `notas.txt`. Ctrl+C y revisa:
+Debes ver dos líneas de log (procesando + archivando) y **ninguna** para `notas.txt`. **Espera unos 3 segundos** hasta que salga `Archivando ventas.csv el ...` (la Ruta 2 sólo actúa cuando revisa `output`, después de que la Ruta 1 escribió ahí). Luego Ctrl+C y revisa:
 
 ```fish
 ls input output archived
@@ -315,6 +315,19 @@ gh repo create camel-lab --public --source=. --push
 
 (Si no tienes `gh`: crea el repo vacío en github.com y sigue sus instrucciones de `git remote add` / `git push`.)
 `lib/` no se sube: se regenera con `mvn dependency:copy-dependencies -DoutputDirectory=lib`.
+
+---
+
+## Problemas encontrados y soluciones
+
+| # | Paso | Síntoma | Causa | Solución |
+|---|------|---------|-------|----------|
+| 1 | 0.2 | No existe `.zip` binario con `lib/` | Camel 4 sólo publica el código fuente | `pom.xml` mínimo + `mvn dependency:copy-dependencies -DoutputDirectory=lib` |
+| 2 | 4 | `Cannot find RoutesBuilderLoader in classpath supporting file extension: md` | Había una carpeta `camel/` con `GUIA.md`; Camel Main carga `classpath:camel/*` como rutas y `.` está en el classpath | Mover la guía a otra carpeta (`guia/`) |
+| 3 | 5 | `Method with name: toUpperCase() not found on bean: GenericFile[ventas.csv]`, repetido en bucle | En Camel 4 el body de `file:` es un `GenericFile`, no texto; al fallar hace rollback y lo reintenta en cada sondeo | `.convertBodyTo(String.class)` antes del `.transform()` |
+| 4 | 5–6 | `fish: No matches for wildcard 'archived/*'` y no se borra nada | En fish, un comodín sin coincidencias cancela todo el comando | `rm -rf output archived; mkdir output archived` |
+| 5 | 6 | `logs/camel.log` vacío | Los logs salen por stderr y `\|` sólo pasa stdout | `java ... 2>&1 \| tee logs/camel.log` |
+| 6 | 6 | `archived/` vacío | Se detuvo con Ctrl+C antes de que la Ruta 2 sondeara `output` | Esperar al log `Archivando ...` antes de Ctrl+C |
 
 ---
 
